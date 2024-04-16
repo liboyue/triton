@@ -1,5 +1,6 @@
 import functools
 import logging
+from torch import is_tensor
 
 from triton.compiler import CompiledKernel
 from triton.compiler import get_arch_default_num_stages as _get_arch_default_num_stages
@@ -89,8 +90,12 @@ class LowLatencyJITFunctionPythonGeneratedShort:
         device_type="cuda",
     ):
         assert grid is not None
-        dy_ptr = dy.data_ptr()
-        output_ptr = output.data_ptr()
+        is_tensor_dy = is_tensor(dy)
+        is_tensor_a = is_tensor(a)
+        is_tensor_output = is_tensor(output)
+        is_tensor_N = is_tensor(N)
+        is_tensor_M_STRIDE = is_tensor(M_STRIDE)
+        is_tensor_BLOCK_SIZE = is_tensor(BLOCK_SIZE)
 
         # sig_key = (
         #     dy.dtype,
@@ -135,20 +140,20 @@ class LowLatencyJITFunctionPythonGeneratedShort:
         key = (
             version_key,
             (
-                dy.dtype,
-                _key_of(a),
-                output.dtype,
-                _key_of(N),
-                _key_of(M_STRIDE),
+                (dy.dtype if dy is not None else None) if is_tensor_dy else _key_of(dy),
+                (a.dtype if a is not None else None) if is_tensor_a else _key_of(a),
+                (output.dtype if output is not None else None) if is_tensor_output else _key_of(output),
+                (N.dtype if N is not None else None) if is_tensor_N else _key_of(N),
+                (M_STRIDE.dtype if M_STRIDE is not None else None) if is_tensor_M_STRIDE else _key_of(M_STRIDE),
             ),
             (BLOCK_SIZE,),
             (
-                (dy_ptr % 16 == 0,),
-                _prime_key(a),
-                (output_ptr % 16 == 0,),
-                _prime_key(N),
-                _prime_key(M_STRIDE),
-                _prime_key(BLOCK_SIZE),
+                ((dy.data_ptr() % 16 == 0,) if dy is not None else None) if is_tensor_dy else _prime_key(dy),
+                ((a.data_ptr() % 16 == 0,) if a is not None else None) if is_tensor_a else _prime_key(a),
+                ((output.data_ptr() % 16 == 0,) if output is not None else None) if is_tensor_output else _prime_key(output),
+                ((N.data_ptr() % 16 == 0,) if N is not None else None) if is_tensor_N else _prime_key(N),
+                ((M_STRIDE.data_ptr() % 16 == 0,) if M_STRIDE is not None else None) if is_tensor_M_STRIDE else _prime_key(M_STRIDE),
+                ((BLOCK_SIZE.data_ptr() % 16 == 0,) if BLOCK_SIZE is not None else None) if is_tensor_BLOCK_SIZE else _prime_key(BLOCK_SIZE),
             ),
             num_warps,
             num_ctas,
@@ -216,11 +221,11 @@ class LowLatencyJITFunctionPythonGeneratedShort:
                 CompiledKernel.launch_enter_hook,
                 CompiledKernel.launch_exit_hook,
                 bin,
-                dy_ptr,
-                a,
-                output_ptr,
-                N,
-                M_STRIDE,
+                (dy.data_ptr() if dy is not None else None) if is_tensor_dy else dy,
+                (a.data_ptr() if a is not None else None) if is_tensor_a else a,
+                (output.data_ptr() if output is not None else None) if is_tensor_output else output,
+                (N.data_ptr() if N is not None else None) if is_tensor_N else N,
+                (M_STRIDE.data_ptr() if M_STRIDE is not None else None) if is_tensor_M_STRIDE else M_STRIDE,
             )
         return bin
 
